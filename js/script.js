@@ -32,7 +32,9 @@ envelope.addEventListener('click', () => {
     musicToggle.classList.add('playing');
   }).catch(() => {});
 
-  setTimeout(() => startBlessingLoop(), 1000);
+  fetchWishesFromSheet().then(() => {
+    setTimeout(() => startBlessingLoop(), 1000);
+  });
   setTimeout(() => startAutoScroll(), 1000);
 });
 
@@ -96,20 +98,31 @@ const observer = new IntersectionObserver((entries) => {
 
 document.querySelectorAll('.fade-in').forEach((el) => observer.observe(el));
 
-// ===== LỜI CHÚC BAY LÊN =====
-function loadWishes() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('weddingWishes') || '[]');
-    return [...DEFAULT_WISHES, ...saved];
-  } catch {
-    return DEFAULT_WISHES;
-  }
+// ===== LỜI CHÚC - GOOGLE SHEETS =====
+const WISHES_SHEET_URL = 'https://script.google.com/macros/s/AKfycbwnekyhmOrfASO1te6aNRGBDB5Ci_mJCCev7M1Wf2A3QmsFobzzQSvRDXcrmV5oJ3zr/exec';
+let allWishes = [...DEFAULT_WISHES];
+
+function fetchWishesFromSheet() {
+  if (WISHES_SHEET_URL === 'THAY_LINK_APPS_SCRIPT_LOI_CHUC') return Promise.resolve([]);
+  return fetch(WISHES_SHEET_URL)
+    .then(res => res.json())
+    .then(data => {
+      if (Array.isArray(data)) {
+        allWishes = [...DEFAULT_WISHES, ...data];
+      }
+      return data;
+    })
+    .catch(() => []);
 }
 
-function saveWish(wish) {
-  const saved = JSON.parse(localStorage.getItem('weddingWishes') || '[]');
-  saved.push(wish);
-  localStorage.setItem('weddingWishes', JSON.stringify(saved.slice(-50)));
+function sendWishToSheet(wish) {
+  if (WISHES_SHEET_URL === 'THAY_LINK_APPS_SCRIPT_LOI_CHUC') return;
+  fetch(WISHES_SHEET_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(wish),
+  }).catch(() => {});
 }
 
 const MAX_VISIBLE = 6;
@@ -133,11 +146,10 @@ function showBlessing(wish) {
 let blessingIndex = 0;
 
 function startBlessingLoop() {
-  const wishes = loadWishes();
-  if (!wishes.length) return;
+  if (!allWishes.length) return;
 
   function showNext() {
-    showBlessing(wishes[blessingIndex % wishes.length]);
+    showBlessing(allWishes[blessingIndex % allWishes.length]);
     blessingIndex++;
     const delay = 800 + Math.random() * 700;
     setTimeout(showNext, delay);
@@ -155,7 +167,8 @@ wishForm.addEventListener('submit', (e) => {
   const emoji = emojis[Math.floor(Math.random() * emojis.length)];
   const wish = { name: 'Bạn', emoji, message: text };
 
-  saveWish(wish);
+  allWishes.push(wish);
+  sendWishToSheet(wish);
   showBlessing(wish);
   wishInput.value = '';
   wishInput.blur();
@@ -181,7 +194,7 @@ heartBtn.addEventListener('click', () => {
 });
 
 // ===== RSVP FORM → GOOGLE SHEETS =====
-const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbzL5NDjWEv56AK53WXuXHnLv0COzLLku91DcgZlNm9kTO_be9f5x1qOIgPqL90Nrxlq/exec';
+const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbz3BlpeRjkGVocxe0PrZJyuh1qkzQ89zmjDxBiGhycJR13JZq8WqZ8sUNQI1vs8dSQa/exec';
 const rsvpForm = document.getElementById('rsvpForm');
 const rsvpThanks = document.getElementById('rsvpThanks');
 const rsvpBtn = rsvpForm.querySelector('.btn-submit');
